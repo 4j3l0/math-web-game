@@ -234,6 +234,14 @@ button:hover {
     font-variant-numeric: tabular-nums;
 }
 
+.scoreboard-status {
+    min-height: 1.2em;
+    margin: 8px 0 0;
+    color: var(--chalk);
+    font-size: 0.75rem;
+    text-align: center;
+}
+
 .scoreboard-empty {
     display: block !important;
     color: var(--chalk);

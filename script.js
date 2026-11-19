@@ -17,12 +17,17 @@ const timerBarra = document.getElementById("timer_bar");
 const scoreTexto = document.getElementById("score");
 const scoreboard = document.getElementById("scoreboard");
 const scoreboardCategory = document.getElementById("scoreboard_category");
+const scoreboardStatus = document.getElementById("scoreboard_status");
 const scoreModal = document.getElementById("score_modal");
 const scoreForm = document.getElementById("score_form");
 const scoreName = document.getElementById("score_name");
 const scoreModalMessage = document.getElementById("score_modal_message");
 const scoreCancel = document.getElementById("score_cancel");
 const SCOREBOARD_KEY = "math-web-game.top10.v1";
+const SUPABASE_CONFIG = window.MATH_GAME_SUPABASE || {};
+const SUPABASE_URL = (SUPABASE_CONFIG.url || "").replace(/\/$/, "");
+const SUPABASE_PUBLISHABLE_KEY = SUPABASE_CONFIG.publishableKey || "";
+const SUPABASE_CONFIGURED = Boolean(SUPABASE_URL && SUPABASE_PUBLISHABLE_KEY);
 const esDispositivoTactil = navigator.maxTouchPoints > 0 || "ontouchstart" in window;
 const DURACION_CUENTA = { facil: 90, medio: 120, dificil: 150, extremo: 180 };
 const MAX_RESULTADO = 9999;
@@ -431,8 +436,27 @@ function leerTop10(categoria = selectorDificultad.value) {
     }
 }
 
-function dibujarTop10(categoria = selectorDificultad.value) {
-    const records = leerTop10(categoria);
+async function obtenerTop10Compartido(categoria) {
+    const parametros = new URLSearchParams({
+        select: "player_name,score,created_at",
+        category: `eq.${categoria}`,
+        order: "score.desc,created_at.asc,id.asc",
+        limit: "10"
+    });
+    const respuesta = await fetch(`${SUPABASE_URL}/rest/v1/math_game_scores?${parametros}`, {
+        headers: { apikey: SUPABASE_PUBLISHABLE_KEY },
+        cache: "no-store"
+    });
+    if (!respuesta.ok) throw new Error("No se pudo consultar el ranking compartido.");
+    const filas = await respuesta.json();
+    return filas.map((fila) => ({
+        nombre: fila.player_name,
+        puntaje: Number(fila.score),
+        fecha: Date.parse(fila.created_at) || 0
+    }));
+}
+
+function mostrarTop10(records, categoria) {
     const nombreCategoria = dificultades[categoria]?.nombre || categoria;
     scoreboardCategory.textContent = nombreCategoria;
     scoreboard.closest(".leaderboard-panel").setAttribute("aria-label", `Top 10 de ${nombreCategoria}`);
@@ -458,11 +482,50 @@ function dibujarTop10(categoria = selectorDificultad.value) {
     });
 }
 
+async function dibujarTop10(categoria = selectorDificultad.value) {
+    let records;
+    let conectado = false;
+    if (SUPABASE_CONFIGURED) {
+        try {
+            records = await obtenerTop10Compartido(categoria);
+            conectado = true;
+        } catch {
+            records = leerTop10(categoria);
+        }
+    } else {
+        records = leerTop10(categoria);
+    }
+
+    if (categoria !== selectorDificultad.value) return records;
+    mostrarTop10(records, categoria);
+    scoreboardStatus.textContent = conectado
+        ? ""
+        : SUPABASE_CONFIGURED
+            ? records.length ? "Sin conexión: mostrando récords guardados en este dispositivo." : "No se pudo conectar al ranking compartido."
+            : "El ranking está guardado solo en este dispositivo.";
+    return records;
+}
+
 function calificaTop10(puntaje, categoria = selectorDificultad.value, records = leerTop10(categoria)) {
     return puntaje > 0 && (records.length < 10 || puntaje >= records[9].puntaje);
 }
 
-function guardarEnTop10(nombre, puntaje, categoria) {
+async function guardarEnTop10(nombre, puntaje, categoria) {
+    if (SUPABASE_CONFIGURED) {
+        const respuesta = await fetch(`${SUPABASE_URL}/rest/v1/rpc/submit_math_game_score`, {
+            method: "POST",
+            headers: {
+                apikey: SUPABASE_PUBLISHABLE_KEY,
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({ p_category: categoria, p_name: nombre, p_score: puntaje })
+        });
+        if (!respuesta.ok) throw new Error("No se pudo guardar en el ranking compartido.");
+        const guardado = await respuesta.json();
+        if (guardado) await dibujarTop10(categoria);
+        return guardado;
+    }
+
     const records = leerTop10(categoria);
     if (!calificaTop10(puntaje, categoria, records)) return false;
     records.push({ nombre, puntaje, fecha: Date.now() });
@@ -486,20 +549,27 @@ function pedirNombreParaTop10(puntaje, categoria, alCerrar) {
     scoreName.focus();
 }
 
-scoreForm.addEventListener("submit", (event) => {
+scoreForm.addEventListener("submit", async (event) => {
     event.preventDefault();
     const nombre = scoreName.value.trim().slice(0, 16);
     if (!nombre) {
         scoreName.focus();
         return;
     }
-    if (guardarEnTop10(nombre, scorePendiente, categoriaScorePendiente)) {
-        scoreModal.close();
-    } else if (!calificaTop10(scorePendiente, categoriaScorePendiente)) {
-        scoreModalMessage.textContent = "Ese puntaje ya no alcanza el Top 10. No se guardó.";
-        scoreModal.close();
-    } else {
-        scoreModalMessage.textContent = "No se pudo guardar el puntaje en este navegador.";
+    const botonGuardar = scoreForm.querySelector('[type="submit"]');
+    botonGuardar.disabled = true;
+    try {
+        const guardado = await guardarEnTop10(nombre, scorePendiente, categoriaScorePendiente);
+        if (guardado) {
+            scoreModal.close();
+        } else {
+            scoreModalMessage.textContent = "Ese puntaje ya no alcanza el Top 10. No se guardó.";
+            scoreModal.close();
+        }
+    } catch {
+        scoreModalMessage.textContent = "No se pudo conectar con el ranking compartido. Revisa tu conexión e inténtalo de nuevo.";
+    } finally {
+        botonGuardar.disabled = false;
     }
 });
 
@@ -525,7 +595,7 @@ function completarCuenta() {
     }, 1100);
 }
 
-function terminarRacha(alTerminar) {
+async function terminarRacha(alTerminar) {
     detenerTimer();
     if (avanceCuentaTimeout !== null) {
         clearTimeout(avanceCuentaTimeout);
@@ -540,7 +610,21 @@ function terminarRacha(alTerminar) {
         alTerminar();
     };
 
-    if (calificaTop10(puntajeFinal, categoriaFinal)) {
+    if (puntajeFinal <= 0) {
+        continuar();
+        return;
+    }
+
+    let records;
+    try {
+        records = SUPABASE_CONFIGURED
+            ? await obtenerTop10Compartido(categoriaFinal)
+            : leerTop10(categoriaFinal);
+    } catch {
+        records = leerTop10(categoriaFinal);
+    }
+
+    if (calificaTop10(puntajeFinal, categoriaFinal, records)) {
         pedirNombreParaTop10(puntajeFinal, categoriaFinal, continuar);
     } else {
         continuar();

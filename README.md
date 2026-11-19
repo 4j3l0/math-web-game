@@ -58,7 +58,7 @@ Al cambiar de nivel se genera una cuenta nueva con los parámetros correspondien
 
 ## Estética del tablero
 
-La interfaz conserva la zona central para resolver la cadena y los bancos de números y operadores organizados como paneles. El panel lateral muestra el Top 10 local en lugar del recorrido. Se conserva la paleta existente: fondo azul oscuro, números verdes, operadores amarillos, resultados rosados y casillas de salida/meta azules y celestes.
+La interfaz conserva la zona central para resolver la cadena y los bancos de números y operadores organizados como paneles. El panel lateral muestra el Top 10 compartido en lugar del recorrido. Se conserva la paleta existente: fondo azul oscuro, números verdes, operadores amarillos, resultados rosados y casillas de salida/meta azules y celestes.
 
 ## Temporizador
 
@@ -66,4 +66,13 @@ Cada cuenta tiene un límite de un minuto y medio. Si el tiempo se agota antes d
 
 ## Racha de cuentas
 
-El marcador muestra cuántas cuentas consecutivas se resolvieron. La racha vuelve a cero si se termina el tiempo, se pide una cuenta nueva manualmente o se cambia la dificultad. El panel lateral cambia al Top 10 de la dificultad seleccionada; cada nivel tiene una lista independiente y guarda únicamente puntajes que califican para esa lista. Al perder una racha elegible, aparece un cartel arcade para ingresar un nombre o continuar sin guardar. Los rankings se conservan localmente en ese navegador y dispositivo.
+El marcador muestra cuántas cuentas consecutivas se resolvieron. La racha vuelve a cero si se termina el tiempo, se pide una cuenta nueva manualmente o se cambia la dificultad. El panel lateral cambia al Top 10 de la dificultad seleccionada; cada nivel tiene una lista independiente y guarda únicamente puntajes que califican para esa lista. Al perder una racha elegible, aparece un cartel arcade para ingresar un nombre o continuar sin guardar.
+
+## Ranking compartido con Supabase
+
+- El Top 10 se lee y guarda en la tabla compartida `math_game_scores`, por lo que los dispositivos consultan la misma clasificación.
+- Para preparar la base de datos, abre el SQL Editor del proyecto de Supabase, pega el contenido de `supabase-schema.sql` y ejecútalo.
+- `supabase-config.js` contiene la URL del proyecto y la clave publicable usada por la página. La clave publishable se puede incluir en un sitio público; nunca reemplazarla por una clave `secret` o `service_role`.
+- Después de publicar los archivos actualizados en GitHub Pages, vuelve a cargar el sitio. El marcador indica si está mostrando el ranking compartido o los datos locales de respaldo por falta de conexión.
+- Los récords que ya estaban guardados en `localStorage` no se migran automáticamente a Supabase.
+- La función SQL limita cada dificultad a los diez mejores registros. Al ser un juego ejecutado en el navegador, el servidor no puede verificar por sí solo que una racha reportada se haya jugado legítimamente.
