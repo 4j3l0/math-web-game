@@ -24,14 +24,15 @@ const scoreModalMessage = document.getElementById("score_modal_message");
 const scoreCancel = document.getElementById("score_cancel");
 const SCOREBOARD_KEY = "math-web-game.top10.v1";
 const esDispositivoTactil = navigator.maxTouchPoints > 0 || "ontouchstart" in window;
-const DURACION_CUENTA = 120;
+const DURACION_CUENTA = { facil: 90, medio: 120, dificil: 150, extremo: 180 };
 const MAX_RESULTADO = 9999;
 let idCounter = 0;
 let fichaSeleccionada = null;
+let casillaSeleccionada = null;
 let pasoActual = 0;
 let cantidadOperaciones = 0;
 let cuentaComprobada = false;
-let tiempoRestante = DURACION_CUENTA;
+let tiempoRestante = DURACION_CUENTA[selectorDificultad.value];
 let intervaloTimer = null;
 let cuentasSeguidas = 0;
 let cuentaCompletada = false;
@@ -175,8 +176,8 @@ function calcularOperacion(a, operacion, b) {
 // Revisa la operación que el usuario está armando y marca si está correcta.
 function actualizarResultados() {
     const dificultad = selectorDificultad.value;
-    const entradasOperador = [...box_container.querySelectorAll("input.operador")];
-    const entradasNumero = [...box_container.querySelectorAll("input.numero")];
+    const entradasOperador = [...box_container.querySelectorAll(".operador[data-paso]")];
+    const entradasNumero = [...box_container.querySelectorAll(".numero[data-paso]")];
 
     if (dificultad === "dificil" || dificultad === "extremo") {
         let resultadoAnterior = Number(box_container.querySelector(".inicio").textContent);
@@ -211,14 +212,17 @@ function actualizarResultados() {
         }
 
         const todasLasCasillasLlenas = entradasOperador.every((entrada, i) => entrada.value !== "" && entradasNumero[i].value !== "");
-        botonComprobar.hidden = cuentaComprobada || !todasLasCasillasLlenas;
+        botonComprobar.hidden = true;
         actualizarPanelResultado(pasosCalculados > 0 ? resultadoAnterior : null, pasosCalculados === cantidadOperaciones);
         if (!cuentaComprobada) {
             estadoJuego.textContent = resultadoInvalido
                 ? "El resultado debe tener 4 dígitos o menos y ser entero o terminar en .25, .5 o .75."
-                : todasLasCasillasLlenas ? "Cuenta completa. Pulsa Comprobar cuenta." : "";
+                : "";
         }
         actualizarProgreso();
+        if (todasLasCasillasLlenas && !resultadoInvalido && !cuentaComprobada) {
+            comprobarCuentaCompleta();
+        }
         return;
     }
 
@@ -301,8 +305,8 @@ function obtenerSalida(paso) {
 }
 
 function calcularPaso(paso, resultadoAnterior) {
-    const operador = box_container.querySelector(`input.operador[data-paso="${paso}"]`);
-    const numero = box_container.querySelector(`input.numero[data-paso="${paso}"]`);
+    const operador = box_container.querySelector(`.operador[data-paso="${paso}"]`);
+    const numero = box_container.querySelector(`.numero[data-paso="${paso}"]`);
     if (!operador || !numero || operador.value === "" || numero.value === "") return null;
     return calcularOperacion(resultadoAnterior, operador.value, Number(numero.value));
 }
@@ -354,8 +358,8 @@ function comprobarCuentaCompleta() {
         const calculado = cadenaContinua ? calcularPaso(paso, resultado) : null;
         if (calculado === null || !salida) {
             completa = false;
-            const operador = box_container.querySelector(`input.operador[data-paso="${paso}"]`);
-            const numero = box_container.querySelector(`input.numero[data-paso="${paso}"]`);
+            const operador = box_container.querySelector(`.operador[data-paso="${paso}"]`);
+            const numero = box_container.querySelector(`.numero[data-paso="${paso}"]`);
             if (cadenaContinua && operador?.value !== "" && numero?.value !== "") {
                 resultadoInvalido = true;
                 salida?.classList.add("incorrecto");
@@ -375,9 +379,10 @@ function comprobarCuentaCompleta() {
     cuentaComprobada = !resultadoInvalido;
     actualizarPanelResultado(pasosCalculados > 0 ? resultado : null, pasosCalculados === cantidadOperaciones);
     for (let paso = 0; paso < cantidadOperaciones; paso += 1) bloquearPaso(paso, !resultadoInvalido);
-    botonComprobar.hidden = !resultadoInvalido;
+    const dificultadRequiereComprobacionAutomatica = selectorDificultad.value === "dificil" || selectorDificultad.value === "extremo";
+    botonComprobar.hidden = dificultadRequiereComprobacionAutomatica || !resultadoInvalido;
     estadoJuego.textContent = resultadoInvalido
-        ? "El resultado debe tener 4 dígitos o menos y ser entero o terminar en .25, .5 o .75; modifica las fichas marcadas y vuelve a comprobar."
+        ? "El resultado debe tener 4 dígitos o menos y ser entero o terminar en .25, .5 o .75; modifica las fichas marcadas para continuar."
         : completa ? "¡Toda la cadena es correcta! Llegaste al resultado final." : "Hay operaciones incorrectas. Genera otra cuenta para volver a intentarlo.";
     if (completa) completarCuenta();
 }
@@ -394,10 +399,11 @@ function cuentaResuelta() {
 }
 
 function actualizarTimer() {
+    const duracionTotal = DURACION_CUENTA[selectorDificultad.value];
     const minutos = Math.floor(tiempoRestante / 60).toString().padStart(2, "0");
     const segundos = (tiempoRestante % 60).toString().padStart(2, "0");
     timerTexto.textContent = `${minutos}:${segundos}`;
-    timerBarra.style.width = `${(tiempoRestante / DURACION_CUENTA) * 100}%`;
+    timerBarra.style.width = `${(tiempoRestante / duracionTotal) * 100}%`;
     timerTexto.classList.toggle("poco-tiempo", tiempoRestante <= 30);
 }
 
@@ -543,7 +549,7 @@ function terminarRacha(alTerminar) {
 
 function reiniciarTimer() {
     detenerTimer();
-    tiempoRestante = DURACION_CUENTA;
+    tiempoRestante = DURACION_CUENTA[selectorDificultad.value];
     actualizarTimer();
     intervaloTimer = setInterval(() => {
         tiempoRestante -= 1;
@@ -601,40 +607,86 @@ function configurarCasilla(casilla, tipo) {
         actualizarResultados();
     });
 
-    casilla.addEventListener("click", () => {
-        if (fichaSeleccionada) {
-            const tipoCasilla = casilla.classList.contains("numero") ? "numero" : "operador";
-            if (fichaSeleccionada.tipo !== tipoCasilla) return;
-            if (casilla.value !== "" && casilla.dataset.bloqueado !== "true") devolverFichaCasilla(casilla);
-            colocarFicha(casilla, fichaSeleccionada);
-        } else if (casilla.value !== "" && casilla.dataset.bloqueado !== "true") {
-            devolverFichaCasilla(casilla);
-        }
-    });
+    casilla.addEventListener("click", () => activarCasilla(casilla));
     casilla.addEventListener("keydown", (e) => {
         if (e.key === "Enter" || e.key === " ") {
             e.preventDefault();
-            if (fichaSeleccionada) {
-                const tipoCasilla = casilla.classList.contains("numero") ? "numero" : "operador";
-                if (fichaSeleccionada.tipo !== tipoCasilla) return;
-                if (casilla.value !== "" && casilla.dataset.bloqueado !== "true") devolverFichaCasilla(casilla);
-                colocarFicha(casilla, fichaSeleccionada);
-            } else if (casilla.value !== "" && casilla.dataset.bloqueado !== "true") {
-                devolverFichaCasilla(casilla);
-            }
+            activarCasilla(casilla);
         }
     });
 
     // Hace que la casilla pueda ser arrastrada.
-    casilla.readOnly = true;
+    casilla.type = "button";
     casilla.setAttribute("aria-label", tipo === "numero" ? "Casilla para un número" : "Casilla para un operador");
     casilla.title = "Selecciona una ficha y activa esta casilla";
 }
 
+function tipoDeCasilla(casilla) {
+    return casilla.classList.contains("numero") ? "numero" : "operador";
+}
+
+function limpiarSeleccionCasilla() {
+    casillaSeleccionada?.classList.remove("casilla-seleccionada");
+    casillaSeleccionada = null;
+}
+
+function devolverSeleccionAlBanco(tipo) {
+    if (casillaSeleccionada && tipoDeCasilla(casillaSeleccionada) === tipo) {
+        devolverFichaCasilla(casillaSeleccionada);
+    } else if (!casillaSeleccionada) {
+        fichaSeleccionada = null;
+        document.querySelectorAll(".ficha.seleccionada").forEach((elemento) => elemento.classList.remove("seleccionada"));
+        estadoJuego.textContent = "";
+    }
+    actualizarEstadoBanco();
+}
+
+function activarCasilla(casilla) {
+    if (casilla.dataset.bloqueado === "true") return;
+
+    if (fichaSeleccionada) {
+        if (fichaSeleccionada.tipo !== tipoDeCasilla(casilla)) return;
+        if (casilla.value !== "") devolverFichaCasilla(casilla);
+        colocarFicha(casilla, fichaSeleccionada);
+        limpiarSeleccionCasilla();
+        return;
+    }
+
+    if (casillaSeleccionada) {
+        if (casillaSeleccionada === casilla) {
+            if (casilla.value !== "") devolverFichaCasilla(casilla);
+            return;
+        }
+
+        if (tipoDeCasilla(casillaSeleccionada) !== tipoDeCasilla(casilla)) {
+            limpiarSeleccionCasilla();
+        } else {
+            const valorOrigen = casillaSeleccionada.value;
+            const valorDestino = casilla.value;
+            casillaSeleccionada.value = valorDestino;
+            casillaSeleccionada.textContent = valorDestino;
+            casilla.value = valorOrigen;
+            casilla.textContent = valorOrigen;
+            limpiarSeleccionCasilla();
+            estadoJuego.textContent = valorDestino === ""
+                ? "Ficha movida a la otra casilla."
+                : "Fichas intercambiadas.";
+            actualizarResultados();
+            return;
+        }
+    }
+
+    if (casilla.value === "") return;
+    casillaSeleccionada = casilla;
+    casilla.classList.add("casilla-seleccionada");
+}
+
 function devolverFichaCasilla(casilla) {
     const tipoFicha = casilla.classList.contains("numero") ? "numero" : "operador";
+    if (casillaSeleccionada === casilla) limpiarSeleccionCasilla();
     crearFicha(casilla.value, tipoFicha, tipoFicha === "numero" ? num_box_container : op_box_container);
     casilla.value = "";
+    casilla.textContent = "";
     estadoJuego.textContent = "Ficha devuelta al banco.";
     actualizarEstadoBanco();
     actualizarResultados();
@@ -644,12 +696,17 @@ function colocarFicha(casilla, ficha) {
     if (!ficha || casilla.dataset.bloqueado === "true" || ficha.tipo !== (casilla.classList.contains("numero") ? "numero" : "operador") || casilla.value !== "") return;
 
     const origen = ficha.casillaOrigen ? document.getElementById(ficha.casillaOrigen) : null;
-    if (origen && origen !== casilla) origen.value = "";
+    if (origen && origen !== casilla) {
+        origen.value = "";
+        origen.textContent = "";
+    }
     casilla.value = ficha.valor;
+    casilla.textContent = ficha.valor;
 
     const original = ficha.id ? document.getElementById(ficha.id) : null;
     if (original && (original.parentElement === num_box_container || original.parentElement === op_box_container)) original.remove();
     fichaSeleccionada = null;
+    limpiarSeleccionCasilla();
     document.querySelectorAll(".ficha.seleccionada").forEach((elemento) => elemento.classList.remove("seleccionada"));
     estadoJuego.textContent = `${ficha.tipo === "numero" ? "Número" : "Operador"} ${ficha.valor} colocado.`;
     actualizarEstadoBanco();
@@ -666,6 +723,22 @@ function crearFicha(valor, tipo, contenedor) {
     ficha.setAttribute("aria-label", `${tipo === "numero" ? "Número" : "Operador"} ${valor}. Seleccionar para colocar`);
     ficha.id = crearId(tipo);
     ficha.addEventListener("click", () => {
+        if (fichaSeleccionada?.id === ficha.id) {
+            const primerCasilleroVacio = [...box_container.querySelectorAll(`.${tipo}[data-paso]`)]
+                .find((casillero) => casillero.value === "");
+            if (primerCasilleroVacio) {
+                colocarFicha(primerCasilleroVacio, fichaSeleccionada);
+            } else {
+                estadoJuego.textContent = `No hay casilleros vacíos para ${tipo === "numero" ? "números" : "operadores"}.`;
+            }
+            return;
+        }
+
+        if (casillaSeleccionada && tipoDeCasilla(casillaSeleccionada) === tipo) {
+            devolverFichaCasilla(casillaSeleccionada);
+            return;
+        }
+        limpiarSeleccionCasilla();
         document.querySelectorAll(".ficha.seleccionada").forEach((elemento) => elemento.classList.remove("seleccionada"));
         fichaSeleccionada = { tipo, valor, id: ficha.id };
         ficha.classList.add("seleccionada");
@@ -700,7 +773,9 @@ function generarCasillas(datos) {
     // Recorre cada valor para crear el diseño de la operación.
     valores.forEach((valor, i) => {
         const static_box = document.createElement("div");
-        const character_box = document.createElement("input");
+        const character_box = document.createElement("button");
+        character_box.type = "button";
+        character_box.classList.add("casilla-slot");
 
         // Dependiendo del valor, agrega un símbolo o una caja distinta.
         if (valor == "=") {
@@ -728,7 +803,6 @@ function generarCasillas(datos) {
                 nxt_result = false;
                 paso += 1;
             } else {
-                character_box.type = "number";
                 character_box.classList.add("numero");
                 character_box.dataset.paso = paso;
                 configurarCasilla(character_box, "numero", paso);
@@ -736,7 +810,6 @@ function generarCasillas(datos) {
                 box_container.appendChild(character_box);
             }
         } else {
-            character_box.type = "text";
             character_box.classList.add("operador");
             character_box.dataset.paso = paso;
             configurarCasilla(character_box, "operador", paso);
@@ -746,7 +819,7 @@ function generarCasillas(datos) {
     });
     pasoActual = 0;
     cuentaComprobada = false;
-    box_container.querySelectorAll("input[data-paso]").forEach((entrada) => {
+    box_container.querySelectorAll("button[data-paso]").forEach((entrada) => {
         const bloqueado = false;
         entrada.dataset.bloqueado = String(bloqueado);
         entrada.setAttribute("aria-disabled", String(bloqueado));
@@ -826,6 +899,7 @@ num_box_container.addEventListener("drop", (e) => {
 
     if (casilla) {
         casilla.value = "";
+        casilla.textContent = "";
         actualizarResultados();
     }
 });
@@ -855,7 +929,24 @@ op_box_container.addEventListener("drop", (e) => {
 
     if (casilla) {
         casilla.value = "";
+        casilla.textContent = "";
         actualizarResultados();
+    }
+});
+
+num_box_container.addEventListener("click", (e) => {
+    if (casillaSeleccionada && tipoDeCasilla(casillaSeleccionada) === "numero") {
+        devolverFichaCasilla(casillaSeleccionada);
+    } else if (e.target === num_box_container || e.target.classList.contains("bank-empty")) {
+        devolverSeleccionAlBanco("numero");
+    }
+});
+
+op_box_container.addEventListener("click", (e) => {
+    if (casillaSeleccionada && tipoDeCasilla(casillaSeleccionada) === "operador") {
+        devolverFichaCasilla(casillaSeleccionada);
+    } else if (e.target === op_box_container || e.target.classList.contains("bank-empty")) {
+        devolverSeleccionAlBanco("operador");
     }
 });
 
@@ -869,12 +960,13 @@ function renderCuenta(mensajeInicial = "") {
         avanceCuentaTimeout = null;
     }
     fichaSeleccionada = null;
+    limpiarSeleccionCasilla();
     cuentaCompletada = false;
     actualizarPanelResultado(null, false);
     dibujarTop10();
     botonComprobar.hidden = true;
     estadoJuego.textContent = selectorDificultad.value === "dificil" || selectorDificultad.value === "extremo"
-        ? "Completa toda la cadena y compruébala al final."
+        ? "Completa toda la cadena; se comprobará automáticamente al final."
         : "Completa las casillas en el orden que prefieras; la cadena se recalcula al cambiar fichas.";
     const datos = generarCuenta();
     generarCasillas(datos);

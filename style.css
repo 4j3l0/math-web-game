@@ -363,7 +363,7 @@ button:hover {
     text-transform: uppercase;
 }
 
-#box_container input,
+#box_container .casilla-slot,
 .ficha,
 .inicio,
 .final,
@@ -379,19 +379,33 @@ button:hover {
     font-weight: 800;
 }
 
-#box_container input {
+#box_container .casilla-slot {
+    flex: 0 0 50px;
+    width: 50px;
+    height: 50px;
+    min-height: 0;
     padding: 0;
     border-radius: 9px;
+    cursor: pointer;
+    font: inherit;
+    font-size: 1.1rem;
+    font-weight: 800;
     text-align: center;
     touch-action: manipulation;
-    appearance: textfield;
-    -moz-appearance: textfield;
+    user-select: none;
 }
 
-#box_container input::-webkit-outer-spin-button,
-#box_container input::-webkit-inner-spin-button {
-    margin: 0;
-    -webkit-appearance: none;
+#box_container .casilla-slot:hover {
+    transform: none;
+    box-shadow: none;
+}
+
+#box_container .casilla-slot.numero:hover:not(.correcto):not(.incorrecto) {
+    background: var(--number);
+}
+
+#box_container .casilla-slot.operador:hover:not(.correcto):not(.incorrecto) {
+    background: var(--operator);
 }
 
 .ficha {
@@ -473,10 +487,16 @@ button:hover {
     cursor: not-allowed !important;
 }
 
+#box_container .casilla-slot.casilla-seleccionada {
+    outline: 3px solid white;
+    outline-offset: 3px;
+    box-shadow: 0 0 0 5px rgba(255, 255, 255, 0.2);
+}
+
 .ficha:focus-visible,
 button:focus-visible,
 select:focus-visible,
-#box_container input:focus-visible {
+#box_container .casilla-slot:focus-visible {
     outline: 3px solid #78b7ff;
     outline-offset: 3px;
 }
@@ -600,7 +620,7 @@ select:focus-visible,
         padding: 10px 5px;
     }
 
-    #box_container input,
+    #box_container .casilla-slot,
     .ficha,
     .inicio,
     .igual,
@@ -627,7 +647,7 @@ select:focus-visible,
 
 @media (pointer: coarse) {
     .ficha,
-    #box_container input {
+    #box_container .casilla-slot {
         cursor: pointer;
         touch-action: manipulation;
     }
