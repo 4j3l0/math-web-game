@@ -1,21 +1,87 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="style.css">
     <script src="script.js" defer></script>
-    <title>math game</title>
+    <title>Juego matemático</title>
 </head>
 <body>
 
-    <h1>Mi juego</h1>
+    <header class="game-header">
+        <div>
+            <p class="eyebrow">TABLERO DE DESAFÍOS</p>
+            <h1>Juego matemático</h1>
+        </div>
+        <div class="timer-panel" role="timer" aria-label="Tiempo restante de la cuenta">
+            <span>Tiempo</span>
+            <strong id="timer">01:30</strong>
+            <div class="timer-track" aria-hidden="true"><span id="timer_bar"></span></div>
+        </div>
+        <div class="score-panel" aria-label="Cuentas consecutivas resueltas">
+            <span>Racha</span>
+            <strong id="score">0</strong>
+        </div>
+        <div class="game-controls">
+            <label for="dificultad">Dificultad</label>
+            <select id="dificultad" aria-label="Selecciona la dificultad">
+                <option value="facil">Fácil</option>
+                <option value="medio" selected>Media</option>
+                <option value="dificil">Difícil</option>
+                <option value="extremo">Extremo</option>
+            </select>
+            <button id="generar" type="button">Nueva cuenta</button>
+        </div>
+    </header>
 
-    <button id="generar">Generar</button>
+    <div class="game-layout">
+        <aside class="leaderboard-panel" aria-label="Ranking de las diez mejores rachas">
+            <p class="eyebrow">RÉCORDS LOCALES</p>
+            <h2>Top 10 <span id="scoreboard_category"></span></h2>
+            <ol id="scoreboard" class="scoreboard-list"></ol>
+        </aside>
 
-    <div id="box_container"></div>
-    <div id="num_box_container"></div>
-    <div id="op_box_container"></div>
+        <main class="play-panel">
+            <div class="play-status">
+                <p id="progreso" aria-live="polite"></p>
+                <p id="estado_juego" aria-live="polite"></p>
+                <button id="comprobar" type="button" hidden>Comprobar cuenta</button>
+            </div>
+            <section class="equation-panel" aria-label="Cuenta del desafío">
+                <p class="panel-label">RESUELVE LA CADENA</p>
+                <div id="box_container" role="group" aria-label="Cadena de operaciones"></div>
+                <div id="resultado_panel" class="live-result" hidden aria-live="polite">
+                    <span id="resultado_etiqueta">Resultado parcial</span>
+                    <strong id="resultado_valor"></strong>
+                </div>
+            </section>
+            <div class="banks-grid">
+                <section class="bank-panel numbers-panel">
+                    <h2>Números</h2>
+                    <div id="num_box_container" role="group" aria-label="Banco de números"></div>
+                </section>
+                <section class="bank-panel operators-panel">
+                    <h2>Operadores</h2>
+                    <div id="op_box_container" role="group" aria-label="Banco de operadores"></div>
+                </section>
+            </div>
+        </main>
+    </div>
+
+    <dialog id="score_modal" class="score-modal" aria-labelledby="score_modal_title">
+        <form id="score_form">
+            <p class="eyebrow">NUEVO RÉCORD</p>
+            <h2 id="score_modal_title">¡Entraste al Top 10!</h2>
+            <p id="score_modal_message"></p>
+            <label for="score_name">Ingresa tu nombre</label>
+            <input id="score_name" name="player" type="text" maxlength="16" autocomplete="nickname" required>
+            <div class="score-modal-actions">
+                <button type="submit">Guardar puntaje</button>
+                <button id="score_cancel" type="button">Seguir sin guardar</button>
+            </div>
+        </form>
+    </dialog>
 
 </body>
 </html>
